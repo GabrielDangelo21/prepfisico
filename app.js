@@ -39,11 +39,15 @@ function fileToData(file,max=640,type='image/jpeg'){return new Promise(res=>{con
   img.onerror=()=>{URL.revokeObjectURL(url);res(null)};img.src=url})}
 const cleanName=s=>s.replace(/\.[^.]+$/,'').replace(/[_\-]+/g,' ').replace(/\s+/g,' ').trim().toUpperCase();
 const libById=id=>library.find(e=>e.id===id);
-const imgOf=item=>{const e=item.exId&&libById(item.exId);return e&&e.img};
+// img: enviada neste navegador (tem prioridade); siteImg: da pasta imagens/ do site
+const exImg=x=>x&&(x.img||x.siteImg);
+const imgOf=item=>exImg(item.exId&&libById(item.exId));
 
 /* ---------- salvar ---------- */
 let draftT;const saveDraft=()=>{clearTimeout(draftT);draftT=setTimeout(()=>DB.set('draft',sheet),300)};
-const saveLib=()=>DB.set('library',library);
+// exercícios que só existem no site não são salvos no navegador; voltam da lista a cada abertura
+const localLib=()=>library.filter(x=>!x.site).map(({siteImg,...x})=>x);
+const saveLib=()=>DB.set('library',localLib());
 const saveSheets=()=>DB.set('sheets',sheets);
 const saveSettings=()=>DB.set('settings',settings);
 let toastT;function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
@@ -122,7 +126,7 @@ ed.addEventListener('mousedown',e=>{const o=e.target.closest('.sugg button');if(
 function showSugg(inp){const s=inp.nextElementSibling;const q=inp.value.trim().toUpperCase();const inItem=inp.dataset.i!=null;
   const list=library.filter(x=>!q||x.name.includes(q)).sort((a,b)=>(b.name.startsWith(q))-(a.name.startsWith(q))||a.name.localeCompare(b.name)).slice(0,30);
   // no campo de nome nada vem pré-selecionado: Enter mantém o texto digitado
-  let h=list.map((x,k)=>`<button type="button" data-ex="${x.id}" class="${k===0&&!inItem?'on':''}"><span class="mini">${x.img?`<img src="${x.img}" alt="">`:'—'}</span>${esc(x.name)}</button>`).join('');
+  let h=list.map((x,k)=>`<button type="button" data-ex="${x.id}" class="${k===0&&!inItem?'on':''}"><span class="mini">${exImg(x)?`<img src="${exImg(x)}" alt="">`:'—'}</span>${esc(x.name)}</button>`).join('');
   if(inItem&&!list.length){s.hidden=true;return}
   if(!inItem&&q&&!library.some(x=>x.name===q))h+=`<button type="button" data-new="${esc(q)}" class="${list.length?'':'on'}"><span class="mini">+</span>Adicionar “${esc(q)}” (novo, sem imagem)</button>`;
   s.innerHTML=h||'<div class="empty-note" style="padding:8px">Biblioteca vazia. Importe as imagens na aba Biblioteca.</div>';s.hidden=false}
@@ -137,11 +141,11 @@ function pick(inp,opt){if(!opt)return;const bi=+inp.dataset.b;let item;
 
 let pendingImg=null;
 $('#fileOne').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const data=await fileToData(f);if(!data)return toast('Não foi possível ler essa imagem.');
-  if(pendingImg&&pendingImg.lib){const x=libById(pendingImg.lib);if(x){x.img=data;delete x.example}saveLib();renderLibrary();pendingImg=null;return}
+  if(pendingImg&&pendingImg.lib){const x=libById(pendingImg.lib);if(x){x.img=data;delete x.example;delete x.site}saveLib();renderLibrary();pendingImg=null;return}
   if(!pendingImg)return;const it=sheet.blocks[pendingImg.bi].items[pendingImg.ii];
   let x=it.exId&&libById(it.exId);if(!x)x=library.find(l=>l.name===it.name.trim().toUpperCase());
   if(!x){x={id:uid(),name:it.name.trim().toUpperCase()||'NOVO EXERCÍCIO',img:null};library.push(x)}
-  x.img=data;delete x.example;it.exId=x.id;saveLib();saveDraft();pendingImg=null;renderEditor();renderPreview();toast('Imagem salva na biblioteca.')});
+  x.img=data;delete x.example;delete x.site;it.exId=x.id;saveLib();saveDraft();pendingImg=null;renderEditor();renderPreview();toast('Imagem salva na biblioteca.')});
 $('#fileLogo').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;settings.logo=await fileToData(f,320,'image/png');saveSettings();renderEditor();renderPreview()});
 
 /* ---------- folha ---------- */
@@ -200,12 +204,12 @@ $('#histList').addEventListener('click',e=>{const b=e.target.closest('[data-h]')
 
 /* ---------- biblioteca ---------- */
 function renderLibrary(){const q=$('#libSearch').value.trim().toUpperCase();const list=library.filter(x=>!q||x.name.includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
-  $('#libCount').textContent=`${library.length} exercícios · ${library.filter(x=>x.img).length} com imagem`;
-  $('#libGrid').innerHTML=list.length?list.map(x=>`<figure class="ex-card"><button class="ex-img" data-l="img" data-id="${x.id}" title="Clique para ${x.img?'trocar':'enviar'} a imagem">${x.img?`<img src="${x.img}" alt="${esc(x.name)}">`:'Sem imagem<br>clique para enviar'}</button>
-    <input data-lname="${x.id}" value="${esc(x.name)}" aria-label="Nome do exercício"><div class="ex-foot">${x.example?'<span class="tag">exemplo</span>':'<span></span>'}<button class="link-btn" data-l="del" data-id="${x.id}">Excluir</button></div></figure>`).join('')
+  $('#libCount').textContent=`${library.length} exercícios · ${library.filter(exImg).length} com imagem`;
+  $('#libGrid').innerHTML=list.length?list.map(x=>`<figure class="ex-card"><button class="ex-img" data-l="img" data-id="${x.id}" title="Clique para ${exImg(x)?'trocar':'enviar'} a imagem">${exImg(x)?`<img src="${exImg(x)}" alt="${esc(x.name)}">`:'Sem imagem<br>clique para enviar'}</button>
+    <input data-lname="${x.id}" value="${esc(x.name)}" aria-label="Nome do exercício"><div class="ex-foot">${x.siteImg&&!x.img?'<span class="tag">do site</span>':x.example?'<span class="tag">exemplo</span>':'<span></span>'}${x.site?'':`<button class="link-btn" data-l="del" data-id="${x.id}">Excluir</button>`}</div></figure>`).join('')
     :'<div class="empty-note">Nada encontrado.</div>'}
 $('#libSearch').addEventListener('input',renderLibrary);
-$('#libGrid').addEventListener('input',e=>{const id=e.target.dataset.lname;if(!id)return;const x=libById(id);x.name=e.target.value.toUpperCase();
+$('#libGrid').addEventListener('input',e=>{const id=e.target.dataset.lname;if(!id)return;const x=libById(id);x.name=e.target.value.toUpperCase();delete x.site;
   sheet.blocks.forEach(b=>b.items.forEach(it=>{if(it.exId===id)it.name=x.name}));saveLib();saveDraft()});
 $('#libGrid').addEventListener('click',e=>{const b=e.target.closest('[data-l]');if(!b)return;const id=b.dataset.id;
   if(b.dataset.l==='img'){pendingImg={lib:id};$('#fileOne').value='';$('#fileOne').click()}
@@ -217,7 +221,7 @@ async function importFiles(files){files=[...files].filter(f=>/^image\//.test(f.t
   toast(`Importando ${files.length} imagens…`);const seen=new Set();let added=0,updated=0;
   for(const f of files){const parts=(f.webkitRelativePath||'').split('/');const name=cleanName(parts.length>2?parts[parts.length-2]:f.name);
     if(!name||seen.has(name))continue;seen.add(name);const data=await fileToData(f);if(!data)continue;
-    const ex=library.find(x=>x.name===name);if(ex){ex.img=data;delete ex.example;updated++}else{library.push({id:uid(),name,img:data});added++}}
+    const ex=library.find(x=>x.name===name);if(ex){ex.img=data;delete ex.example;delete ex.site;updated++}else{library.push({id:uid(),name,img:data});added++}}
   saveLib();renderLibrary();toast(`${added} novos, ${updated} atualizados.`)}
 $('#impDir').addEventListener('change',e=>{importFiles(e.target.files);e.target.value=''});
 $('#impFiles').addEventListener('change',e=>{importFiles(e.target.files);e.target.value=''});
@@ -228,7 +232,7 @@ vb.addEventListener('drop',e=>{e.preventDefault();vb.classList.remove('drop');im
 
 /* ---------- backup ---------- */
 $('#bkExport').addEventListener('click',()=>{
-  const data={app:'fichas-treino',version:1,exportedAt:new Date().toISOString(),settings,library,sheets,draft:sheet};
+  const data={app:'fichas-treino',version:1,exportedAt:new Date().toISOString(),settings,library:localLib(),sheets,draft:sheet};
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
   a.download=`fichas-treino-backup-${isoD(new Date())}.json`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   toast('Backup exportado.')});
@@ -238,7 +242,7 @@ $('#bkImport').addEventListener('change',async e=>{const f=e.target.files[0];e.t
   if(!d||d.app!=='fichas-treino'||!Array.isArray(d.library)||!Array.isArray(d.sheets))return toast('Esse arquivo não é um backup das Fichas de Treino.');
   const idMap={};let exN=0,imgN=0,shN=0;
   for(const x of d.library){if(!x||!x.id||!x.name)continue;const cur=libById(x.id)||library.find(l=>l.name===x.name);
-    if(cur){idMap[x.id]=cur.id;if(x.img&&!cur.img){cur.img=x.img;delete cur.example;imgN++}}
+    if(cur){idMap[x.id]=cur.id;if(x.img&&!cur.img){cur.img=x.img;delete cur.example;delete cur.site;imgN++}}
     else{library.push({id:x.id,name:x.name,img:x.img||null,...(x.example?{example:true}:{})});idMap[x.id]=x.id;exN++}}
   const remap=s=>{s.blocks.forEach(b=>b.items.forEach(it=>{if(it.exId&&idMap[it.exId])it.exId=idMap[it.exId]}));return s};
   const incoming=d.sheets.slice();if(d.draft&&hasContent(d.draft)&&!incoming.some(s=>s.id===d.draft.id))incoming.push({...d.draft,savedAt:Date.parse(d.exportedAt)||Date.now()});
@@ -248,8 +252,16 @@ $('#bkImport').addEventListener('change',async e=>{const f=e.target.files[0];e.t
   saveLib();saveSheets();saveSettings();renderEditor();renderPreview();renderHistory();
   toast(`Backup importado: ${exN} exercícios novos, ${imgN} imagens, ${shN} fichas.`)});
 
+/* ---------- imagens do site (pasta imagens/, lista gerada no deploy por scripts/gerar-lista.js) ---------- */
+async function loadSiteImages(){let files;try{const r=await fetch('imagens/lista.json',{cache:'no-cache'});if(!r.ok)return;files=await r.json()}catch(e){return}
+  if(!Array.isArray(files))return;const seen=new Set();
+  for(const f of files){const parts=String(f).split('/');const name=cleanName(parts.length>1?parts[parts.length-2]:parts[0]);if(!name||seen.has(name))continue;seen.add(name);
+    const url='imagens/'+parts.map(encodeURIComponent).join('/');
+    const ex=library.find(x=>x.name===name)||libById('site:'+name);if(ex)ex.siteImg=url;else library.push({id:'site:'+name,name,img:null,siteImg:url,site:true})}}
+
 /* ---------- início ---------- */
 (async()=>{settings={...DEFAULT_SETTINGS,...(await DB.get('settings')||{})};
   library=await DB.get('library');if(!Array.isArray(library)){library=sampleLibrary();saveLib()}
+  await loadSiteImages();
   sheets=await DB.get('sheets')||[];sheet=await DB.get('draft')||sampleSheet();if(sheet.comments==null)sheet.comments=settings.comments;
   renderEditor();renderPreview()})();
