@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fichas de Treino</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">Fichas de Treino<small>Monte a ficha semanal e gere o PDF</small></div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="ficha" aria-selected="true">Ficha</button>
+      <button role="tab" data-tab="biblioteca" aria-selected="false">Biblioteca</button>
+      <button role="tab" data-tab="historico" aria-selected="false">Histórico</button>
+    </nav>
+    <div class="actions">
+      <button class="btn" id="btnNext">Próxima semana</button>
+      <button class="btn" id="btnSave">Salvar no histórico</button>
+      <button class="btn primary" id="btnPdf">Gerar PDF</button>
+    </div>
+  </header>
+
+  <main id="view-ficha" class="layout">
+    <div class="col" id="editor"></div>
+    <div class="preview">
+      <div class="preview-head"><span class="eyebrow">Pré-visualização</span><span>A4 paisagem, como vai no PDF</span></div>
+      <div class="paper-wrap" id="paperWrap"><div class="sheet" id="sheet"></div></div>
+    </div>
+  </main>
+
+  <main id="view-biblioteca" hidden>
+    <h2 class="sec">Biblioteca de exercícios</h2>
+    <div class="lib-tools">
+      <input id="libSearch" placeholder="Buscar exercício">
+      <label class="btn primary">Importar pasta<input type="file" id="impDir" webkitdirectory multiple hidden></label>
+      <label class="btn">Importar imagens<input type="file" id="impFiles" accept="image/*" multiple hidden></label>
+      <button class="btn" id="libNew">Novo exercício</button>
+      <span id="libCount" class="tag"></span>
+    </div>
+    <p class="hint">O nome do arquivo vira o nome do exercício (ex.: <b>military_press.png</b> → MILITARY PRESS). Se a pasta tiver uma subpasta por exercício, o nome da subpasta é usado. As imagens são reduzidas automaticamente para o tamanho da ficha. Você também pode arrastar imagens para cá.</p>
+    <div class="lib-grid" id="libGrid"></div>
+  </main>
+
+  <main id="view-historico" hidden>
+    <h2 class="sec">Histórico de fichas</h2>
+    <div class="lib-tools">
+      <button class="btn" id="histBlank">Nova ficha em branco</button>
+      <span class="hint" style="margin:0">Abra uma ficha antiga para reaproveitar, ou use "Próxima semana" para copiar a atual com as datas avançadas.</span>
+    </div>
+    <div class="hist" id="histList"></div>
+    <section class="card backup">
+      <div class="eyebrow">Backup</div>
+      <p class="hint">Os dados ficam só neste navegador. Exporte um backup de vez em quando (biblioteca, histórico e dados fixos num único arquivo .json) e importe-o para restaurar ou para usar em outro computador. Importar junta com o que já existe: nada é apagado.</p>
+      <div class="lib-tools">
+        <button class="btn" id="bkExport">Exportar backup</button>
+        <label class="btn">Importar backup<input type="file" id="bkImport" accept=".json,application/json" hidden></label>
+      </div>
+    </section>
+  </main>
+</div>
+<input type="file" id="fileOne" accept="image/*" hidden>
+<input type="file" id="fileLogo" accept="image/*" hidden>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
