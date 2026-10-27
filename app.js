@@ -11,6 +11,9 @@ const uid=()=>Math.random().toString(36).slice(2,10);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone=o=>JSON.parse(JSON.stringify(o));
 
+// logo: null = logo padrão do RSCA; '' = sem logo; dataURL = logo enviado
+const DEFAULT_LOGO='logo-rsca.png';
+const logoSrc=()=>settings.logo===''?null:settings.logo||DEFAULT_LOGO;
 const DEFAULT_SETTINGS={logo:null,link:'https://forms.gle/YMqrSsEy1s6AHFSJ8',signature:'Víctor Delgado  (PT RSCA Anderlecht)',
   comments:'Medium weight, medium execution speed. When you finish the training, answer the questionnaire in the following link:'};
 let settings,library=[],sheets=[],sheet;
@@ -87,8 +90,8 @@ function renderEditor(){
     h+=`<div class="adder"><input class="search" data-b="${bi}" placeholder="+ Adicionar exercício (escolha a pasta ou digite)" autocomplete="off"><div class="sugg" hidden></div></div></section>`});
   h+=`<section class="card"><label class="f">Comentários<textarea data-f="comments">${esc(sheet.comments)}</textarea></label></section>
   <details class="card"><summary>Dados fixos: logo, link e assinatura</summary><div class="stack">
-    <div class="logo-row"><div class="logo-box">${settings.logo?`<img src="${settings.logo}" alt="Logo">`:'sem logo'}</div>
-      <button class="btn" data-act="logo">${settings.logo?'Trocar logo':'Enviar logo'}</button>${settings.logo?'<button class="btn danger" data-act="logo-del">Remover</button>':''}</div>
+    <div class="logo-row"><div class="logo-box">${logoSrc()?`<img src="${logoSrc()}" alt="Logo">`:'sem logo'}</div>
+      <button class="btn" data-act="logo">${logoSrc()?'Trocar logo':'Enviar logo'}</button>${logoSrc()?'<button class="btn danger" data-act="logo-del">Remover</button>':''}${settings.logo!=null?'<button class="btn" data-act="logo-def">Usar logo do RSCA</button>':''}</div>
     <label class="f">Link do questionário<input type="url" data-s="link" value="${esc(settings.link)}"></label>
     <label class="f">Assinatura<input data-s="signature" value="${esc(settings.signature)}"></label>
   </div></details>`;
@@ -108,7 +111,8 @@ ed.addEventListener('input',e=>{const t=e.target,d=t.dataset;
   renderPreview();saveDraft()});
 ed.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const{act}=b.dataset,bi=+b.dataset.b,ii=+b.dataset.i;
   if(act==='logo')return $('#fileLogo').click();
-  if(act==='logo-del'){settings.logo=null;saveSettings();renderEditor();renderPreview();return}
+  if(act==='logo-del'){settings.logo='';saveSettings();renderEditor();renderPreview();return}
+  if(act==='logo-def'){settings.logo=null;saveSettings();renderEditor();renderPreview();return}
   // limpa objetivo, tipos e exercícios; mantém número, datas e comentários
   if(act==='clear'){if(!b.classList.contains('confirm')){b.classList.add('confirm');b.textContent='Confirmar: apagar objetivo, tipos e exercícios';setTimeout(()=>{b.classList.remove('confirm');b.textContent='Limpar ficha'},3000);return}
     sheet.goal='';sheet.blocks=blankBlocks();renderEditor();renderPreview();saveDraft();return}
@@ -172,7 +176,7 @@ $('#fileLogo').addEventListener('change',async e=>{const f=e.target.files[0];if(
 
 /* ---------- folha ---------- */
 function renderPreview(){const s=$('#sheet');
-  let h=`<div class="s-title">WORKOUT ${esc(sheet.num)}${settings.logo?`<img src="${settings.logo}" alt="">`:''}</div>
+  let h=`<div class="s-title">WORKOUT ${esc(sheet.num)}${logoSrc()?`<img src="${logoSrc()}" alt="">`:''}</div>
     <div class="s-sub"><span><b>GOALS:</b>${esc(sheet.goal)}</span><span><b>DATE:</b> ${fmtRange(sheet.from,sheet.to)}</span></div>`;
   sheet.blocks.forEach(b=>{h+=`<div class="s-band"><b>${b.label}:</b> ${esc(b.type)}</div>`;
     const n=b.items.length,cols=Math.max(1,Math.min(n,6));
