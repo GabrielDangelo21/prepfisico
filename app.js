@@ -161,7 +161,8 @@ function pick(inp,opt){if(!opt)return;const bi=+inp.dataset.b;let item;
     renderEditor();renderPreview();saveDraft();const ni=ed.querySelector(`input[data-b="${bi}"][data-i="${ii}"][data-if="dose"]`);if(ni){ni.focus();ni.select()}return}
   if(opt.dataset.ex){const x=libById(opt.dataset.ex);item={uid:uid(),exId:x.id,name:x.name,dose:'',rest:''}}
   else{const n=opt.dataset.new;const x={id:uid(),name:n,img:null};library.push(x);saveLib();item={uid:uid(),exId:x.id,name:n,dose:'',rest:''}}
-  const items=sheet.blocks[bi].items;
+  // séries e descanso vêm do exercício anterior do bloco
+  const items=sheet.blocks[bi].items;const last=items[items.length-1];if(last){item.dose=last.dose;item.rest=last.rest}
   items.push(item);renderEditor();renderPreview();saveDraft();
   const ni=ed.querySelector(`input[data-b="${bi}"][data-i="${items.length-1}"][data-if="dose"]`);if(ni){ni.focus();ni.select()}}
 
