@@ -19,7 +19,7 @@ const DEFAULT_SETTINGS={logo:null,link:'https://forms.gle/YMqrSsEy1s6AHFSJ8',sig
 let settings,library=[],sheets=[],sheet;
 
 function blankBlocks(){return[{key:'warm',label:'WARM-UP',type:'',items:[]},{key:'str',label:'STRENGTH',type:'',items:[]},{key:'calm',label:'CALM-DOWN',type:'',items:[]}]}
-function sampleSheet(){return{id:uid(),num:'4.5',goal:'',from:'2026-07-20',to:'2026-07-26',comments:settings.comments,blocks:blankBlocks()}}
+function sampleSheet(){return{id:uid(),num:'4.5',goal:'',from:'2026-07-20',to:'2026-07-26',comments:'',blocks:blankBlocks()}}
 
 /* ---------- datas ---------- */
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -294,9 +294,9 @@ async function loadSiteImages(){let files;try{const r=await fetch('imagens/lista
   library=(await DB.get('library')||[]).filter(x=>!(x.example&&!x.img));
   await loadSiteImages();
   sheets=await DB.get('sheets')||[];
-  // ao abrir ou atualizar a página a ficha começa limpa (mantém nº, datas e comentários);
+  // ao abrir ou atualizar a página a ficha começa limpa (mantém só nº e datas);
   // a ficha anterior, se tinha exercícios, vai para o histórico para não se perder
   const draft=await DB.get('draft');
   if(draft&&hasContent(draft)){sheet=draft;upsertHistory(true)}
-  sheet=draft?{id:uid(),num:draft.num,goal:'',from:draft.from,to:draft.to,comments:draft.comments??settings.comments,blocks:blankBlocks()}:sampleSheet();saveDraft();
+  sheet=draft?{id:uid(),num:draft.num,goal:'',from:draft.from,to:draft.to,comments:'',blocks:blankBlocks()}:sampleSheet();saveDraft();
   renderEditor();renderPreview()})();
