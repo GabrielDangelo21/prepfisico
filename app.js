@@ -293,5 +293,10 @@ async function loadSiteImages(){let files;try{const r=await fetch('imagens/lista
 (async()=>{settings={...DEFAULT_SETTINGS,...(await DB.get('settings')||{})};
   library=(await DB.get('library')||[]).filter(x=>!(x.example&&!x.img));
   await loadSiteImages();
-  sheets=await DB.get('sheets')||[];sheet=await DB.get('draft')||sampleSheet();if(sheet.comments==null)sheet.comments=settings.comments;
+  sheets=await DB.get('sheets')||[];
+  // ao abrir ou atualizar a página a ficha começa limpa (mantém nº, datas e comentários);
+  // a ficha anterior, se tinha exercícios, vai para o histórico para não se perder
+  const draft=await DB.get('draft');
+  if(draft&&hasContent(draft)){sheet=draft;upsertHistory(true)}
+  sheet=draft?{id:uid(),num:draft.num,goal:'',from:draft.from,to:draft.to,comments:draft.comments??settings.comments,blocks:blankBlocks()}:sampleSheet();saveDraft();
   renderEditor();renderPreview()})();
