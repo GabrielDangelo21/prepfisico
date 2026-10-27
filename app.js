@@ -78,13 +78,13 @@ function renderEditor(){
     if(b.items.length){h+=`<div class="item-labels"><span></span><span>Exercício</span><span>Séries</span><span>Desc.</span><span></span></div><ol class="items">`;
       b.items.forEach((it,ii)=>{const img=imgOf(it);
         h+=`<li class="item"><button class="thumb ${img?'has':''}" data-act="img" data-b="${bi}" data-i="${ii}" title="${img?'Trocar imagem':'Enviar imagem'}">${img?`<img src="${img}" alt="">`:'+'}</button>
-          <div class="ac"><input class="search" data-b="${bi}" data-i="${ii}" data-path="${esc(sugPath[bi]||'')}" data-if="name" value="${esc(it.name)}" placeholder="Digite para buscar" autocomplete="off" aria-label="Exercício"><div class="sugg" hidden></div></div>
+          <div class="ac"><input class="search" data-b="${bi}" data-i="${ii}" data-if="name" value="${esc(it.name)}" placeholder="Digite para buscar" autocomplete="off" aria-label="Exercício"><div class="sugg" hidden></div></div>
           <input data-b="${bi}" data-i="${ii}" data-if="dose" value="${esc(it.dose)}" placeholder="4x12" aria-label="Séries e repetições">
           <input data-b="${bi}" data-i="${ii}" data-if="rest" value="${esc(it.rest)}" placeholder="1'" aria-label="Descanso">
           <div class="ord"><button data-act="up" data-b="${bi}" data-i="${ii}" title="Subir">↑</button><button data-act="down" data-b="${bi}" data-i="${ii}" title="Descer">↓</button><button data-act="del" data-b="${bi}" data-i="${ii}" title="Remover">✕</button></div></li>`});
       h+=`</ol>`}
     else h+=`<div class="empty-note">Nenhum exercício ainda. Busque na biblioteca abaixo.</div>`;
-    h+=`<div class="adder"><input class="search" data-b="${bi}" data-path="${esc(sugPath[bi]||'')}" placeholder="+ Adicionar exercício (escolha a pasta ou digite)" autocomplete="off"><div class="sugg" hidden></div></div></section>`});
+    h+=`<div class="adder"><input class="search" data-b="${bi}" placeholder="+ Adicionar exercício (escolha a pasta ou digite)" autocomplete="off"><div class="sugg" hidden></div></div></section>`});
   h+=`<section class="card"><label class="f">Comentários<textarea data-f="comments">${esc(sheet.comments)}</textarea></label></section>
   <details class="card"><summary>Dados fixos: logo, link e assinatura</summary><div class="stack">
     <div class="logo-row"><div class="logo-box">${settings.logo?`<img src="${settings.logo}" alt="Logo">`:'sem logo'}</div>
@@ -119,10 +119,11 @@ ed.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)ret
   if(act==='down'&&ii<items.length-1)[items[ii+1],items[ii]]=[items[ii],items[ii+1]];
   renderEditor();renderPreview();saveDraft()});
 // no campo de nome a lista só abre sozinha se ele estiver vazio; ao digitar, abre sempre
-ed.addEventListener('focusin',e=>{const t=e.target;if(t.classList.contains('search')&&(t.dataset.i==null||!t.value.trim()))showSugg(t)});
+// a lista sempre abre nas pastas principais
+ed.addEventListener('focusin',e=>{const t=e.target;if(t.classList.contains('search')&&(t.dataset.i==null||!t.value.trim())){t.dataset.path='';showSugg(t)}});
 ed.addEventListener('focusout',e=>{if(e.target.classList.contains('search'))setTimeout(()=>{const s=e.target.nextElementSibling;if(s)s.hidden=true},150)});
 ed.addEventListener('keydown',e=>{const t=e.target;if(!t.classList.contains('search'))return;const s=t.nextElementSibling;
-  if(e.key==='Backspace'&&!t.value&&t.dataset.path){e.preventDefault();t.dataset.path=sugPath[t.dataset.b]=parentPath(t.dataset.path);showSugg(t);return}const opts=[...s.querySelectorAll('button')];if(!opts.length)return;
+  if(e.key==='Backspace'&&!t.value&&t.dataset.path){e.preventDefault();t.dataset.path=parentPath(t.dataset.path);showSugg(t);return}const opts=[...s.querySelectorAll('button')];if(!opts.length)return;
   let i=opts.findIndex(o=>o.classList.contains('on'));
   if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();i=e.key==='ArrowDown'?Math.min(opts.length-1,i+1):Math.max(0,i-1);opts.forEach((o,k)=>o.classList.toggle('on',k===i));opts[i].scrollIntoView({block:'nearest'})}
   if(e.key==='Enter'){e.preventDefault();if(s.hidden)return;if(i<0&&t.dataset.i!=null){s.hidden=true;return}pick(t,opts[Math.max(0,i)])}
@@ -130,7 +131,6 @@ ed.addEventListener('keydown',e=>{const t=e.target;if(!t.classList.contains('sea
 ed.addEventListener('mousedown',e=>{const o=e.target.closest('.sugg button');if(!o)return;e.preventDefault();pick(o.closest('.adder,.ac').querySelector('.search'),o)});
 
 const FOLDER='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>';
-const sugPath={};// última pasta aberta em cada bloco
 const parentPath=p=>p.split('/').slice(0,-1).join('/');
 function showSugg(inp){const s=inp.nextElementSibling;const q=inp.value.trim().toUpperCase();const inItem=inp.dataset.i!=null;const path=inp.dataset.path||'';
   const exBtn=(x,sub)=>`<button type="button" data-ex="${x.id}"><span class="mini">${exImg(x)?`<img src="${exImg(x)}" alt="" loading="lazy">`:'—'}</span><span class="lbl">${esc(x.name)}${sub?`<small>${esc(catLabel(sub))}</small>`:''}</span></button>`;
@@ -152,12 +152,12 @@ function showSugg(inp){const s=inp.nextElementSibling;const q=inp.value.trim().t
   if(!inItem&&q&&!library.some(x=>x.name===q))h+=`<button type="button" data-new="${esc(q)}" class="${list.length?'':'on'}"><span class="mini">+</span>Adicionar “${esc(q)}” (novo, sem imagem)</button>`;
   s.innerHTML=h||'<div class="empty-note" style="padding:8px">Biblioteca vazia. Importe as imagens na aba Biblioteca.</div>';s.hidden=false}
 function pick(inp,opt){if(!opt)return;const bi=+inp.dataset.b;let item;
-  if(opt.dataset.dir!=null){inp.dataset.path=sugPath[bi]=opt.dataset.dir;showSugg(inp);inp.nextElementSibling.scrollTop=0;return}
+  if(opt.dataset.dir!=null){inp.dataset.path=opt.dataset.dir;showSugg(inp);inp.nextElementSibling.scrollTop=0;return}
   if(inp.dataset.i!=null){const ii=+inp.dataset.i,it=sheet.blocks[bi].items[ii];if(!opt.dataset.ex)return;const x=libById(opt.dataset.ex);it.exId=x.id;it.name=x.name;
     renderEditor();renderPreview();saveDraft();const ni=ed.querySelector(`input[data-b="${bi}"][data-i="${ii}"][data-if="dose"]`);if(ni){ni.focus();ni.select()}return}
   if(opt.dataset.ex){const x=libById(opt.dataset.ex);item={uid:uid(),exId:x.id,name:x.name,dose:'',rest:''}}
   else{const n=opt.dataset.new;const x={id:uid(),name:n,img:null};library.push(x);saveLib();item={uid:uid(),exId:x.id,name:n,dose:'',rest:''}}
-  const items=sheet.blocks[bi].items;const last=items[items.length-1];if(last){item.dose=last.dose;item.rest=last.rest}
+  const items=sheet.blocks[bi].items;
   items.push(item);renderEditor();renderPreview();saveDraft();
   const ni=ed.querySelector(`input[data-b="${bi}"][data-i="${items.length-1}"][data-if="dose"]`);if(ni){ni.focus();ni.select()}}
 
