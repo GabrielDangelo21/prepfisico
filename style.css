@@ -122,3 +122,11 @@ h2.sec{font-family:var(--f-head);font-size:22px;text-transform:uppercase;letter-
 .ac{position:relative;min-width:0}
 .ac .sugg{right:auto;min-width:300px;max-width:calc(100vw - 40px)}
 .clear-row{display:flex;justify-content:flex-end;margin-top:8px}
+.sugg .lbl{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
+.sugg .lbl small{color:var(--muted);font-size:11px;letter-spacing:.3px}
+.sugg .count{margin-left:auto;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.sugg .mini.dir{background:var(--soft);color:var(--accent)}
+.sugg .back{color:var(--muted);font-size:13px}
+.sugg-path{font-size:11px;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:.6px;padding:2px 8px 6px}
+.lib-cat{grid-column:1/-1;margin:10px 0 -2px;font-family:var(--f-head);font-size:18px;letter-spacing:.5px;text-transform:uppercase}
+.lib-cat span{font-family:var(--f-ui);font-size:12px;font-weight:500;color:var(--muted);margin-left:6px}

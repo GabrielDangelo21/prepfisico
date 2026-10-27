@@ -15,7 +15,6 @@ const DEFAULT_SETTINGS={logo:null,link:'https://forms.gle/YMqrSsEy1s6AHFSJ8',sig
   comments:'Medium weight, medium execution speed. When you finish the training, answer the questionnaire in the following link:'};
 let settings,library=[],sheets=[],sheet;
 
-function sampleLibrary(){return['REVERSE CRUNCH','AROUND THE WORLD','PRESS PALLOF','MILITARY PRESS','CALF PRESS','BIRDS','ADDUCTORS',"FARMER'S WALK",'LATERAL SQUAT IN LANDMINE','CLIMB WALK'].map(n=>({id:uid(),name:n,img:null,example:true}))}
 function blankBlocks(){return[{key:'warm',label:'WARM-UP',type:'',items:[]},{key:'str',label:'STRENGTH',type:'',items:[]},{key:'calm',label:'CALM-DOWN',type:'',items:[]}]}
 function sampleSheet(){return{id:uid(),num:'4.5',goal:'',from:'2026-07-20',to:'2026-07-26',comments:settings.comments,blocks:blankBlocks()}}
 
@@ -37,8 +36,14 @@ function fileToData(file,max=640,type='image/jpeg'){return new Promise(res=>{con
   img.onload=()=>{const s=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*s));c.height=Math.max(1,Math.round(img.height*s));
     const x=c.getContext('2d');if(type==='image/jpeg'){x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height)}x.drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);res(c.toDataURL(type,.86))};
   img.onerror=()=>{URL.revokeObjectURL(url);res(null)};img.src=url})}
-const cleanName=s=>s.replace(/\.[^.]+$/,'').replace(/[_\-]+/g,' ').replace(/\s+/g,' ').trim().toUpperCase();
+const cleanName=s=>s.normalize('NFC').replace(/\.[^.]+$/,'').replace(/[_\-]+/g,' ').replace(/\s+/g,' ').trim().toUpperCase();
 const libById=id=>library.find(e=>e.id===id);
+// pasta do exercício: 'CORE/ANTIROTADORES'; sem pasta vai para OUTROS quando a biblioteca tem pastas
+const catOf=dirs=>dirs.map(d=>d.normalize('NFC').trim().toUpperCase()).filter(Boolean).join('/');
+const catLabel=c=>c.split('/').join(' › ');
+const OUTROS='OUTROS';
+const hasCats=()=>library.some(x=>x.cat);
+const catKey=x=>x.cat||(hasCats()?OUTROS:'');
 // img: enviada neste navegador (tem prioridade); siteImg: da pasta imagens/ do site
 const exImg=x=>x&&(x.img||x.siteImg);
 const imgOf=item=>exImg(item.exId&&libById(item.exId));
@@ -73,13 +78,13 @@ function renderEditor(){
     if(b.items.length){h+=`<div class="item-labels"><span></span><span>Exercício</span><span>Séries</span><span>Desc.</span><span></span></div><ol class="items">`;
       b.items.forEach((it,ii)=>{const img=imgOf(it);
         h+=`<li class="item"><button class="thumb ${img?'has':''}" data-act="img" data-b="${bi}" data-i="${ii}" title="${img?'Trocar imagem':'Enviar imagem'}">${img?`<img src="${img}" alt="">`:'+'}</button>
-          <div class="ac"><input class="search" data-b="${bi}" data-i="${ii}" data-if="name" value="${esc(it.name)}" placeholder="Digite para buscar" autocomplete="off" aria-label="Exercício"><div class="sugg" hidden></div></div>
+          <div class="ac"><input class="search" data-b="${bi}" data-i="${ii}" data-path="${esc(sugPath[bi]||'')}" data-if="name" value="${esc(it.name)}" placeholder="Digite para buscar" autocomplete="off" aria-label="Exercício"><div class="sugg" hidden></div></div>
           <input data-b="${bi}" data-i="${ii}" data-if="dose" value="${esc(it.dose)}" placeholder="4x12" aria-label="Séries e repetições">
           <input data-b="${bi}" data-i="${ii}" data-if="rest" value="${esc(it.rest)}" placeholder="1'" aria-label="Descanso">
           <div class="ord"><button data-act="up" data-b="${bi}" data-i="${ii}" title="Subir">↑</button><button data-act="down" data-b="${bi}" data-i="${ii}" title="Descer">↓</button><button data-act="del" data-b="${bi}" data-i="${ii}" title="Remover">✕</button></div></li>`});
       h+=`</ol>`}
     else h+=`<div class="empty-note">Nenhum exercício ainda. Busque na biblioteca abaixo.</div>`;
-    h+=`<div class="adder"><input class="search" data-b="${bi}" placeholder="+ Adicionar exercício (digite para buscar)" autocomplete="off"><div class="sugg" hidden></div></div></section>`});
+    h+=`<div class="adder"><input class="search" data-b="${bi}" data-path="${esc(sugPath[bi]||'')}" placeholder="+ Adicionar exercício (escolha a pasta ou digite)" autocomplete="off"><div class="sugg" hidden></div></div></section>`});
   h+=`<section class="card"><label class="f">Comentários<textarea data-f="comments">${esc(sheet.comments)}</textarea></label></section>
   <details class="card"><summary>Dados fixos: logo, link e assinatura</summary><div class="stack">
     <div class="logo-row"><div class="logo-box">${settings.logo?`<img src="${settings.logo}" alt="Logo">`:'sem logo'}</div>
@@ -116,21 +121,38 @@ ed.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)ret
 // no campo de nome a lista só abre sozinha se ele estiver vazio; ao digitar, abre sempre
 ed.addEventListener('focusin',e=>{const t=e.target;if(t.classList.contains('search')&&(t.dataset.i==null||!t.value.trim()))showSugg(t)});
 ed.addEventListener('focusout',e=>{if(e.target.classList.contains('search'))setTimeout(()=>{const s=e.target.nextElementSibling;if(s)s.hidden=true},150)});
-ed.addEventListener('keydown',e=>{const t=e.target;if(!t.classList.contains('search'))return;const s=t.nextElementSibling;const opts=[...s.querySelectorAll('button')];if(!opts.length)return;
+ed.addEventListener('keydown',e=>{const t=e.target;if(!t.classList.contains('search'))return;const s=t.nextElementSibling;
+  if(e.key==='Backspace'&&!t.value&&t.dataset.path){e.preventDefault();t.dataset.path=sugPath[t.dataset.b]=parentPath(t.dataset.path);showSugg(t);return}const opts=[...s.querySelectorAll('button')];if(!opts.length)return;
   let i=opts.findIndex(o=>o.classList.contains('on'));
   if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();i=e.key==='ArrowDown'?Math.min(opts.length-1,i+1):Math.max(0,i-1);opts.forEach((o,k)=>o.classList.toggle('on',k===i));opts[i].scrollIntoView({block:'nearest'})}
   if(e.key==='Enter'){e.preventDefault();if(s.hidden)return;if(i<0&&t.dataset.i!=null){s.hidden=true;return}pick(t,opts[Math.max(0,i)])}
   if(e.key==='Escape')s.hidden=true});
 ed.addEventListener('mousedown',e=>{const o=e.target.closest('.sugg button');if(!o)return;e.preventDefault();pick(o.closest('.adder,.ac').querySelector('.search'),o)});
 
-function showSugg(inp){const s=inp.nextElementSibling;const q=inp.value.trim().toUpperCase();const inItem=inp.dataset.i!=null;
-  const list=library.filter(x=>!q||x.name.includes(q)).sort((a,b)=>(b.name.startsWith(q))-(a.name.startsWith(q))||a.name.localeCompare(b.name)).slice(0,30);
+const FOLDER='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>';
+const sugPath={};// última pasta aberta em cada bloco
+const parentPath=p=>p.split('/').slice(0,-1).join('/');
+function showSugg(inp){const s=inp.nextElementSibling;const q=inp.value.trim().toUpperCase();const inItem=inp.dataset.i!=null;const path=inp.dataset.path||'';
+  const exBtn=(x,sub)=>`<button type="button" data-ex="${x.id}"><span class="mini">${exImg(x)?`<img src="${exImg(x)}" alt="" loading="lazy">`:'—'}</span><span class="lbl">${esc(x.name)}${sub?`<small>${esc(catLabel(sub))}</small>`:''}</span></button>`;
+  let opts=[],head='';
+  if(q){// digitando: busca em todas as pastas
+    opts=library.filter(x=>x.name.includes(q)).sort((a,b)=>(b.name.startsWith(q))-(a.name.startsWith(q))||a.name.localeCompare(b.name)).slice(0,30).map(x=>exBtn(x,catKey(x)))}
+  else if(hasCats()){// campo vazio: primeiro a pasta, depois o exercício
+    const keys=library.map(catKey),pre=path?path+'/':'';
+    const dirs=[...new Set(keys.filter(k=>k.startsWith(pre)&&k!==path).map(k=>k.slice(pre.length).split('/')[0]))].sort((a,b)=>(a===OUTROS)-(b===OUTROS)||a.localeCompare(b));
+    if(path)head=`<button type="button" class="back" data-dir="${esc(parentPath(path))}">← Voltar</button><div class="sugg-path">${esc(catLabel(path))}</div>`;
+    opts=dirs.map(d=>{const full=pre+d,n=keys.filter(k=>k===full||k.startsWith(full+'/')).length;
+      return`<button type="button" data-dir="${esc(full)}"><span class="mini dir">${FOLDER}</span><span class="lbl">${esc(d)}</span><span class="count">${n}</span></button>`})
+      .concat(library.filter(x=>catKey(x)===path).sort((a,b)=>a.name.localeCompare(b.name)).map(x=>exBtn(x)))}
+  else opts=library.slice().sort((a,b)=>a.name.localeCompare(b.name)).slice(0,30).map(x=>exBtn(x));
   // no campo de nome nada vem pré-selecionado: Enter mantém o texto digitado
-  let h=list.map((x,k)=>`<button type="button" data-ex="${x.id}" class="${k===0&&!inItem?'on':''}"><span class="mini">${exImg(x)?`<img src="${exImg(x)}" alt="">`:'—'}</span>${esc(x.name)}</button>`).join('');
-  if(inItem&&!list.length){s.hidden=true;return}
+  if(!inItem&&opts.length)opts[0]=opts[0].replace('<button type="button"','<button type="button" class="on"');
+  let h=head+opts.join('');const list=opts;
+  if(inItem&&!opts.length){s.hidden=true;return}
   if(!inItem&&q&&!library.some(x=>x.name===q))h+=`<button type="button" data-new="${esc(q)}" class="${list.length?'':'on'}"><span class="mini">+</span>Adicionar “${esc(q)}” (novo, sem imagem)</button>`;
   s.innerHTML=h||'<div class="empty-note" style="padding:8px">Biblioteca vazia. Importe as imagens na aba Biblioteca.</div>';s.hidden=false}
 function pick(inp,opt){if(!opt)return;const bi=+inp.dataset.b;let item;
+  if(opt.dataset.dir!=null){inp.dataset.path=sugPath[bi]=opt.dataset.dir;showSugg(inp);inp.nextElementSibling.scrollTop=0;return}
   if(inp.dataset.i!=null){const ii=+inp.dataset.i,it=sheet.blocks[bi].items[ii];if(!opt.dataset.ex)return;const x=libById(opt.dataset.ex);it.exId=x.id;it.name=x.name;
     renderEditor();renderPreview();saveDraft();const ni=ed.querySelector(`input[data-b="${bi}"][data-i="${ii}"][data-if="dose"]`);if(ni){ni.focus();ni.select()}return}
   if(opt.dataset.ex){const x=libById(opt.dataset.ex);item={uid:uid(),exId:x.id,name:x.name,dose:'',rest:''}}
@@ -203,10 +225,12 @@ $('#histList').addEventListener('click',e=>{const b=e.target.closest('[data-h]')
     sheets=sheets.filter(x=>x.id!==s.id);saveSheets();renderHistory()}});
 
 /* ---------- biblioteca ---------- */
-function renderLibrary(){const q=$('#libSearch').value.trim().toUpperCase();const list=library.filter(x=>!q||x.name.includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
+function renderLibrary(){const q=$('#libSearch').value.trim().toUpperCase();
+  const list=library.filter(x=>!q||x.name.includes(q)||catKey(x).includes(q)).sort((a,b)=>(catKey(a)===OUTROS)-(catKey(b)===OUTROS)||catKey(a).localeCompare(catKey(b))||a.name.localeCompare(b.name));
   $('#libCount').textContent=`${library.length} exercícios · ${library.filter(exImg).length} com imagem`;
-  $('#libGrid').innerHTML=list.length?list.map(x=>`<figure class="ex-card"><button class="ex-img" data-l="img" data-id="${x.id}" title="Clique para ${exImg(x)?'trocar':'enviar'} a imagem">${exImg(x)?`<img src="${exImg(x)}" alt="${esc(x.name)}">`:'Sem imagem<br>clique para enviar'}</button>
-    <input data-lname="${x.id}" value="${esc(x.name)}" aria-label="Nome do exercício"><div class="ex-foot">${x.siteImg&&!x.img?'<span class="tag">do site</span>':x.example?'<span class="tag">exemplo</span>':'<span></span>'}${x.site?'':`<button class="link-btn" data-l="del" data-id="${x.id}">Excluir</button>`}</div></figure>`).join('')
+  let last=null;
+  $('#libGrid').innerHTML=list.length?list.map(x=>{const c=catKey(x),head=c!==last&&c?`<h3 class="lib-cat">${esc(catLabel(c))} <span>${list.filter(y=>catKey(y)===c).length}</span></h3>`:'';last=c;return head+`<figure class="ex-card"><button class="ex-img" data-l="img" data-id="${x.id}" title="Clique para ${exImg(x)?'trocar':'enviar'} a imagem">${exImg(x)?`<img src="${exImg(x)}" alt="${esc(x.name)}" loading="lazy">`:'Sem imagem<br>clique para enviar'}</button>
+    <input data-lname="${x.id}" value="${esc(x.name)}" aria-label="Nome do exercício"><div class="ex-foot">${x.siteImg&&!x.img?'<span class="tag">do site</span>':x.example?'<span class="tag">exemplo</span>':'<span></span>'}${x.site?'':`<button class="link-btn" data-l="del" data-id="${x.id}">Excluir</button>`}</div></figure>`}).join('')
     :'<div class="empty-note">Nada encontrado.</div>'}
 $('#libSearch').addEventListener('input',renderLibrary);
 $('#libGrid').addEventListener('input',e=>{const id=e.target.dataset.lname;if(!id)return;const x=libById(id);x.name=e.target.value.toUpperCase();delete x.site;
@@ -219,9 +243,9 @@ $('#libNew').addEventListener('click',()=>{const x={id:uid(),name:'NOVO EXERCÍC
   const inp=document.querySelector(`[data-lname="${x.id}"]`);if(inp){inp.focus();inp.select()}});
 async function importFiles(files){files=[...files].filter(f=>/^image\//.test(f.type)||/\.(png|jpe?g|gif|webp|bmp)$/i.test(f.name));if(!files.length)return toast('Nenhuma imagem encontrada.');
   toast(`Importando ${files.length} imagens…`);const seen=new Set();let added=0,updated=0;
-  for(const f of files){const parts=(f.webkitRelativePath||'').split('/');const name=cleanName(parts.length>2?parts[parts.length-2]:f.name);
-    if(!name||seen.has(name))continue;seen.add(name);const data=await fileToData(f);if(!data)continue;
-    const ex=library.find(x=>x.name===name);if(ex){ex.img=data;delete ex.example;delete ex.site;updated++}else{library.push({id:uid(),name,img:data});added++}}
+  for(const f of files){const parts=(f.webkitRelativePath||'').split('/');const name=cleanName(f.name),cat=catOf(parts.slice(1,-1)),key=cat+'/'+name;
+    if(!name||seen.has(key))continue;seen.add(key);const data=await fileToData(f);if(!data)continue;
+    const ex=library.find(x=>x.name===name&&(x.cat||'')===cat);if(ex){ex.img=data;delete ex.example;delete ex.site;updated++}else{library.push({id:uid(),name,...(cat?{cat}:{}),img:data});added++}}
   saveLib();renderLibrary();toast(`${added} novos, ${updated} atualizados.`)}
 $('#impDir').addEventListener('change',e=>{importFiles(e.target.files);e.target.value=''});
 $('#impFiles').addEventListener('change',e=>{importFiles(e.target.files);e.target.value=''});
@@ -255,13 +279,15 @@ $('#bkImport').addEventListener('change',async e=>{const f=e.target.files[0];e.t
 /* ---------- imagens do site (pasta imagens/, lista gerada no deploy por scripts/gerar-lista.js) ---------- */
 async function loadSiteImages(){let files;try{const r=await fetch('imagens/lista.json',{cache:'no-cache'});if(!r.ok)return;files=await r.json()}catch(e){return}
   if(!Array.isArray(files))return;const seen=new Set();
-  for(const f of files){const parts=String(f).split('/');const name=cleanName(parts.length>1?parts[parts.length-2]:parts[0]);if(!name||seen.has(name))continue;seen.add(name);
-    const url='imagens/'+parts.map(encodeURIComponent).join('/');
-    const ex=library.find(x=>x.name===name)||libById('site:'+name);if(ex)ex.siteImg=url;else library.push({id:'site:'+name,name,img:null,siteImg:url,site:true})}}
+  for(const f of files){const parts=String(f).split('/');const name=cleanName(parts[parts.length-1]),cat=catOf(parts.slice(0,-1)),id='site:'+(cat?cat+'/':'')+name;
+    if(!name||seen.has(id))continue;seen.add(id);const url='imagens/'+parts.map(encodeURIComponent).join('/');
+    // um exercício do navegador sem pasta e com o mesmo nome passa a usar a imagem (e a pasta) do site
+    const ex=libById(id)||library.find(x=>!x.siteImg&&!x.cat&&x.name===name);
+    if(ex){ex.siteImg=url;if(!ex.cat&&cat)ex.cat=cat}else library.push({id,name,cat,img:null,siteImg:url,site:true})}}
 
 /* ---------- início ---------- */
 (async()=>{settings={...DEFAULT_SETTINGS,...(await DB.get('settings')||{})};
-  library=await DB.get('library');if(!Array.isArray(library)){library=sampleLibrary();saveLib()}
+  library=(await DB.get('library')||[]).filter(x=>!(x.example&&!x.img));
   await loadSiteImages();
   sheets=await DB.get('sheets')||[];sheet=await DB.get('draft')||sampleSheet();if(sheet.comments==null)sheet.comments=settings.comments;
   renderEditor();renderPreview()})();

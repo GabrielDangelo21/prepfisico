@@ -1,1 +1,7 @@
 imagens/lista.json
+# formatos que o navegador não exibe e arquivos temporários do Word
+*.heic
+*.HEIC
+*.mp4
+*.MP4
+*.docx
